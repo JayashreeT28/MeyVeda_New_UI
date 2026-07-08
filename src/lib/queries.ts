@@ -248,7 +248,7 @@ export async function getDinacharyaTasks(
   }));
 }
 
-function formatTime(timeStr: string): string {
+export function formatTime(timeStr: string): string {
   const parts = timeStr.split(":");
   const hours = parseInt(parts[0], 10);
   const m = parts[1] ?? "00";
@@ -1233,6 +1233,16 @@ export async function getPatientPrescriptions(patientIdInput: string): Promise<P
     const consult = Array.isArray(row.consultation) ? row.consultation[0] : row.consultation;
     const emr = consult?.emr_note ? (Array.isArray(consult.emr_note) ? consult.emr_note[0] : consult.emr_note) : {};
 
+    let upcomingCallDate = "";
+    let upcomingCallTime = "";
+    try {
+      if (emr?.assessment) {
+        let parsed = typeof emr.assessment === "string" ? JSON.parse(emr.assessment) : emr.assessment;
+        upcomingCallDate = parsed?.upcomingCallDate || "";
+        upcomingCallTime = parsed?.upcomingCallTime ? formatTime(parsed.upcomingCallTime) : "";
+      }
+    } catch(e){}
+
     return {
       id: row.id,
       date: row.created_at ? new Date(row.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "",
@@ -1244,6 +1254,8 @@ export async function getPatientPrescriptions(patientIdInput: string): Promise<P
       lifestyleAdvice: row.lifestyle_advice ?? "",
       physicalActivity: row.physical_activity ?? "",
       followUpDate: row.followup_date,
+      upcomingCallDate,
+      upcomingCallTime,
       chiefComplaint: emr?.chief_complaint ?? "",
       assessment: emr?.assessment ?? "",
       items: (row.prescription_items ?? [])
@@ -1795,6 +1807,8 @@ export async function getPractitionerPrescriptions(practIdInput: string): Promis
       lifestyleAdvice: row.lifestyle_advice ?? "",
       physicalActivity: row.physical_activity ?? "",
       followUpDate: row.followup_date,
+      upcomingCallDate: rawAssessment.upcomingCallDate || "",
+      upcomingCallTime: rawAssessment.upcomingCallTime ? formatTime(rawAssessment.upcomingCallTime) : "",
       chiefComplaint: parsedChiefComplaints?.length > 0 ? parsedChiefComplaints[0] : "",
       assessment: "",
       items: (row.prescription_items ?? [])
@@ -3615,6 +3629,8 @@ export async function saveCompleteConsultation(payload: any): Promise<{ success:
           visitReason: payload.visitReason,
           previousHistory: payload.previousHistory,
           previousCalls: payload.previousCalls,
+          upcomingCallDate: payload.upcomingCallDate,
+          upcomingCallTime: payload.upcomingCallTime,
         }),
         objective_findings: JSON.stringify({
           vitals: payload.vitals
@@ -3725,6 +3741,50 @@ export async function saveCompleteConsultation(payload: any): Promise<{ success:
           .insert(itemsToInsert);
         if (itemsErr) throw new Error("Prescription items failed: " + itemsErr.message);
       }
+    }
+
+    if (payload.upcomingCallDate && payload.upcomingCallTime) {
+      if (patRow?.user_id) {
+        const { data: practRow } = await supabase.from('practitioners').select('full_name').eq('id', practId).single();
+        const docName = practRow?.full_name || "Doctor";
+        const timeAmPm = formatTime(payload.upcomingCallTime);
+        
+        await supabase.from("notifications").insert({
+          user_id: patRow.user_id,
+          title: "Upcoming Appointment Booked",
+          body: `Your upcoming appointment is with Dr. ${docName} on ${payload.upcomingCallDate} at ${timeAmPm}.`,
+          type: "appointment_24h",
+          channel: "in_app",
+          is_read: false
+        });
+      }
+      
+      const { data: upcomingConsult } = await supabase
+        .from("consultations")
+        .insert({
+          practitioner_id: practId,
+          patient_id: patId,
+          date: payload.upcomingCallDate,
+          time: payload.upcomingCallTime,
+          status: "upcoming",
+          type: "follow-up",
+          mode: "video"
+        })
+        .select("id")
+        .single();
+
+      await supabase.from("follow_ups").insert({
+        practitioner_id: practId,
+        patient_id: patId,
+        recommended_date: payload.upcomingCallDate,
+        booked_appointment_id: upcomingConsult?.id || null,
+      });
+    } else if (payload.followUpDate) {
+      await supabase.from("follow_ups").insert({
+        practitioner_id: practId,
+        patient_id: patId,
+        recommended_date: new Date(payload.followUpDate).toISOString().split('T')[0]
+      });
     }
 
     return { success: true };

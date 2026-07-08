@@ -6,12 +6,13 @@ import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { usePatientIntakeDetails } from "@/lib/hooks";
 import { useAuth } from "@/contexts/auth-context";
-import { saveCompleteConsultation } from "@/lib/queries";
+import { saveCompleteConsultation, formatTime } from "@/lib/queries";
 import { createClient } from "@/lib/supabase";
 import { 
   User, Activity, Syringe, Heart, Fingerprint, Calendar, Phone, 
   MapPin, Stethoscope, Droplets, Thermometer, Weight, Wind, Flame,
-  FileText, ArrowUpCircle, Plus, Trash2, FileUp, Save, History, Clock
+  FileText, ArrowUpCircle, Plus, Trash2, FileUp, Save, History, Clock,
+  Bold, Italic, Underline, List, ListOrdered
 } from "lucide-react";
 
 const SectionCard = ({ title, icon: Icon, children }: { title: string, icon: any, children: React.ReactNode }) => (
@@ -67,7 +68,7 @@ export default function PatientIntakeClient() {
 
   // State for Section 5 - Prescription
   const [medicines, setMedicines] = useState([
-    { id: 1, name: "", form: "Tablet", dose: "", timing: "After Food", duration: "", instructions: "" }
+    { id: 1, name: "", form: "Tablet", dose: "", timing: "After Food", timeOfDay: "Morning", duration: "", instructions: "" }
   ]);
   const [prescriptionNotes, setPrescriptionNotes] = useState("");
   const editorRef = useRef<HTMLDivElement>(null);
@@ -95,6 +96,9 @@ export default function PatientIntakeClient() {
 
   // State for Section 7 & 8
   const [followUpInstructions, setFollowUpInstructions] = useState("");
+  const [showUpcomingCallPicker, setShowUpcomingCallPicker] = useState(false);
+  const [upcomingCallDate, setUpcomingCallDate] = useState("");
+  const [upcomingCallTime, setUpcomingCallTime] = useState("");
 
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -162,6 +166,7 @@ export default function PatientIntakeClient() {
             form: m.form || "Tablet",
             dose: m.dose || "",
             timing: m.timing || "After Food",
+            timeOfDay: m.timeOfDay || "Morning",
             duration: m.duration || "",
             instructions: m.instructions || ""
           })));
@@ -178,7 +183,7 @@ export default function PatientIntakeClient() {
   }, [intakeData, hasInitialized]);
 
   const handleAddMedicine = () => {
-    setMedicines([...medicines, { id: Date.now(), name: "", form: "Tablet", dose: "", timing: "After Food", duration: "", instructions: "" }]);
+    setMedicines([...medicines, { id: Date.now(), name: "", form: "Tablet", dose: "", timing: "After Food", timeOfDay: "Morning", duration: "", instructions: "" }]);
   };
 
   const handleRemoveMedicine = (id: number) => {
@@ -227,6 +232,8 @@ export default function PatientIntakeClient() {
         medicines,
         prescriptionNotes,
         followUpInstructions,
+        upcomingCallDate,
+        upcomingCallTime,
         reportUrls,
         reportNames
       };
@@ -540,12 +547,13 @@ export default function PatientIntakeClient() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-gray-50/80 border-b border-gray-200 text-[11px] text-gray-500 uppercase tracking-wider font-bold">
-                    <th className="px-4 py-3 w-1/4">Medicine Name</th>
-                    <th className="px-3 py-3">Form</th>
-                    <th className="px-3 py-3">Dose</th>
-                    <th className="px-3 py-3">Timing</th>
-                    <th className="px-3 py-3">Duration</th>
-                    <th className="px-4 py-3 w-1/5">Instructions</th>
+                    <th className="px-4 py-3 min-w-[200px]">Medicine Name</th>
+                    <th className="px-3 py-3 min-w-[120px]">Form</th>
+                    <th className="px-3 py-3 min-w-[100px]">Dose</th>
+                    <th className="px-3 py-3 min-w-[130px]">Time of Day</th>
+                    <th className="px-3 py-3 min-w-[140px]">Timing</th>
+                    <th className="px-3 py-3 min-w-[100px]">Duration</th>
+                    <th className="px-4 py-3 min-w-[200px]">Instructions</th>
                     <th className="px-4 py-3 text-center w-12"></th>
                   </tr>
                 </thead>
@@ -571,6 +579,14 @@ export default function PatientIntakeClient() {
                           type="text" placeholder="e.g. 10ml" value={med.dose} onChange={e => handleMedicineChange(med.id, 'dose', e.target.value)}
                           className="w-full bg-white border border-gray-200 rounded-[8px] px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none shadow-sm transition-all"
                         />
+                      </td>
+                      <td className="px-2 py-3">
+                        <select 
+                          value={med.timeOfDay} onChange={e => handleMedicineChange(med.id, 'timeOfDay', e.target.value)}
+                          className="w-full bg-white border border-gray-200 rounded-[8px] px-2 py-2 text-sm focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none shadow-sm transition-all"
+                        >
+                          <option>Morning</option><option>Afternoon</option><option>Evening</option><option>Night</option>
+                        </select>
                       </td>
 
                       <td className="px-2 py-3">
@@ -616,12 +632,12 @@ export default function PatientIntakeClient() {
             <label className="block text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2"><FileText className="w-4 h-4 text-gray-400"/> Additional Instructions & Notes</label>
             <div className="border border-gray-200 rounded-[16px] overflow-hidden bg-white focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-400 transition-all shadow-sm">
               <div className="bg-[#F8FAFC] border-b border-gray-200 px-5 py-3 flex items-center gap-2">
-                <button type="button" onClick={() => handleFormat('bold')} className="p-1.5 text-gray-600 hover:bg-white hover:text-gray-900 rounded-[8px] hover:shadow-sm font-serif font-bold w-8 h-8 flex items-center justify-center text-sm border border-transparent hover:border-gray-200 transition-all">B</button>
-                <button type="button" onClick={() => handleFormat('italic')} className="p-1.5 text-gray-600 hover:bg-white hover:text-gray-900 rounded-[8px] hover:shadow-sm font-serif italic w-8 h-8 flex items-center justify-center text-sm border border-transparent hover:border-gray-200 transition-all">I</button>
-                <button type="button" onClick={() => handleFormat('underline')} className="p-1.5 text-gray-600 hover:bg-white hover:text-gray-900 rounded-[8px] hover:shadow-sm font-serif underline w-8 h-8 flex items-center justify-center text-sm border border-transparent hover:border-gray-200 transition-all">U</button>
-                <div className="w-px h-5 bg-gray-300 mx-2"></div>
-                <button type="button" onClick={() => handleFormat('insertUnorderedList')} className="p-1.5 text-gray-600 hover:bg-white hover:text-gray-900 rounded-[8px] hover:shadow-sm font-serif w-8 h-8 flex items-center justify-center text-sm border border-transparent hover:border-gray-200 transition-all">≡</button>
-                <button type="button" onClick={() => handleFormat('insertOrderedList')} className="p-1.5 text-gray-600 hover:bg-white hover:text-gray-900 rounded-[8px] hover:shadow-sm font-serif w-8 h-8 flex items-center justify-center text-sm border border-transparent hover:border-gray-200 transition-all">1.</button>
+                <button type="button" onClick={() => handleFormat('bold')} className="p-1.5 text-gray-600 hover:bg-white hover:text-gray-900 rounded-[8px] hover:shadow-sm w-8 h-8 flex items-center justify-center border border-transparent hover:border-gray-200 transition-all"><Bold className="w-4 h-4" /></button>
+                <button type="button" onClick={() => handleFormat('italic')} className="p-1.5 text-gray-600 hover:bg-white hover:text-gray-900 rounded-[8px] hover:shadow-sm w-8 h-8 flex items-center justify-center border border-transparent hover:border-gray-200 transition-all"><Italic className="w-4 h-4" /></button>
+                <button type="button" onClick={() => handleFormat('underline')} className="p-1.5 text-gray-600 hover:bg-white hover:text-gray-900 rounded-[8px] hover:shadow-sm w-8 h-8 flex items-center justify-center border border-transparent hover:border-gray-200 transition-all"><Underline className="w-4 h-4" /></button>
+                <div className="w-px h-5 bg-gray-300 mx-1"></div>
+                <button type="button" onClick={() => handleFormat('insertUnorderedList')} className="p-1.5 text-gray-600 hover:bg-white hover:text-gray-900 rounded-[8px] hover:shadow-sm w-8 h-8 flex items-center justify-center border border-transparent hover:border-gray-200 transition-all"><List className="w-4 h-4" /></button>
+                <button type="button" onClick={() => handleFormat('insertOrderedList')} className="p-1.5 text-gray-600 hover:bg-white hover:text-gray-900 rounded-[8px] hover:shadow-sm w-8 h-8 flex items-center justify-center border border-transparent hover:border-gray-200 transition-all"><ListOrdered className="w-4 h-4" /></button>
               </div>
               <div 
                 ref={editorRef}
@@ -706,6 +722,48 @@ export default function PatientIntakeClient() {
               value={followUpInstructions} onChange={e => setFollowUpInstructions(e.target.value)}
               className="w-full bg-[#F8FAFC] border border-gray-200 rounded-[12px] px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all shadow-sm"
             />
+          </div>
+          
+          <div className="mt-6 border-t border-gray-100 pt-6">
+            <button 
+              onClick={() => setShowUpcomingCallPicker(!showUpcomingCallPicker)}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-sm font-semibold transition-colors"
+            >
+              <Calendar className="w-4 h-4" />
+              {showUpcomingCallPicker ? "Hide Upcoming Calls" : "Upcoming Calls"}
+            </button>
+            
+            {showUpcomingCallPicker && (
+              <div className="mt-4 p-5 bg-[#F8FAFC] border border-gray-200 rounded-[16px] shadow-sm animate-in fade-in slide-in-from-top-2">
+                <h4 className="text-sm font-bold text-gray-900 mb-4">Patient Availability & Slot Booking</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Select Date</label>
+                    <input 
+                      type="date" 
+                      value={upcomingCallDate}
+                      onChange={e => setUpcomingCallDate(e.target.value)}
+                      className="w-full bg-white border border-gray-200 rounded-[10px] px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all shadow-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Select Time</label>
+                    <input 
+                      type="time" 
+                      value={upcomingCallTime}
+                      onChange={e => setUpcomingCallTime(e.target.value)}
+                      className="w-full bg-white border border-gray-200 rounded-[10px] px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all shadow-sm"
+                    />
+                  </div>
+                </div>
+                {(upcomingCallDate && upcomingCallTime) && (
+                  <div className="mt-4 flex items-center gap-2 text-xs font-semibold text-emerald-600 bg-emerald-50 px-3 py-2 rounded-lg border border-emerald-100">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Slot booked on spot for {upcomingCallDate} at {formatTime(upcomingCallTime)}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </SectionCard>
 

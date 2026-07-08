@@ -11,6 +11,7 @@ import {
   usePractitioner,
   usePractitionerQueue,
   usePractitionerUpcomingAppointments,
+  usePractitionerFollowUps,
 } from "@/lib/hooks";
 import type { QueuePatient, QueueStatus } from "@/lib/types";
 import { 
@@ -47,6 +48,9 @@ export default function ProDashboardPage() {
   // ── Upcoming appointments (today + future) ──────────────────────────────────
   const { data: rawUpcoming, loading: upcomingLoading } = usePractitionerUpcomingAppointments(practitioner?.id);
   const upcomingAppointments = rawUpcoming || [];
+
+  const { data: followUps } = usePractitionerFollowUps(user?.id);
+  const upcomingBooked = (followUps || []).filter(f => f.isBooked).sort((a, b) => new Date(a.recommendedDate).getTime() - new Date(b.recommendedDate).getTime()).slice(0, 3);
 
   // Split into today vs future
   const todayStr = new Date().toLocaleDateString("en-CA");
@@ -433,6 +437,36 @@ export default function ProDashboardPage() {
                           {s.mode === "video" && s.status !== "completed" && (
                             <Video className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
                           )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Upcoming Booked Sessions */}
+                <div className="bg-white rounded-[16px] border border-[#E5E7EB] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5"/> Upcoming Booked Sessions</h3>
+                    {upcomingBooked.length > 0 && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-100">
+                        {upcomingBooked.length}
+                      </span>
+                    )}
+                  </div>
+                  {upcomingBooked.length === 0 ? (
+                    <p className="text-xs font-medium text-gray-500 text-center py-4 bg-gray-50 rounded-lg">No upcoming booked sessions.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {upcomingBooked.map((fu) => (
+                        <div key={fu.id} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 bg-emerald-50/20 hover:bg-emerald-50/50 transition-colors">
+                          <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold text-xs flex-shrink-0">
+                            {fu.initials}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-gray-900 truncate">{fu.patientName}</p>
+                            <p className="text-[10px] font-medium text-emerald-600 mt-0.5">{new Date(fu.recommendedDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</p>
+                          </div>
+                          <Video className="w-4 h-4 text-emerald-500 flex-shrink-0" />
                         </div>
                       ))}
                     </div>

@@ -428,6 +428,7 @@ function PrescriptionsContent() {
                         <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                           <th className="p-4">Medicine Name</th>
                           <th className="p-4">Form & Dose</th>
+                          <th className="p-4">Time of Day</th>
                           <th className="p-4">Timing & Intake</th>
                           <th className="p-4">Duration</th>
                           <th className="p-4">Special Instructions</th>
@@ -438,6 +439,7 @@ function PrescriptionsContent() {
                           <tr key={idx} className="hover:bg-slate-50/30 transition-colors">
                             <td className="p-4 font-semibold text-slate-900">{item.name}</td>
                             <td className="p-4 text-slate-700">{item.form} ({item.dose || "—"})</td>
+                            <td className="p-4 text-slate-700">{item.timeOfDay || "Morning"}</td>
                             <td className="p-4 text-slate-700">
                               <div>{item.timing}</div>
                               {item.anupana && <div className="text-xs text-slate-400 mt-0.5">Vehicle: {item.anupana}</div>}
@@ -511,6 +513,17 @@ function PrescriptionsContent() {
                     {activeRx?.lifestyleAdvice || "No specific follow-up instructions provided."}
                   </p>
                 </div>
+                {(activeRx as any)?.upcomingCallDate && (activeRx as any)?.upcomingCallTime && (
+                  <div className="mt-4 p-5 bg-emerald-50/50 border border-emerald-100 rounded-xl flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-1">Upcoming Session Booked</p>
+                      <p className="text-sm font-semibold text-emerald-900">{(activeRx as any).upcomingCallDate} at {(activeRx as any).upcomingCallTime}</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+                      <Clock className="w-5 h-5" />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

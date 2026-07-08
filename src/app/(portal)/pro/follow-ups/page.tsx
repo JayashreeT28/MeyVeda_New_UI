@@ -6,24 +6,41 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { usePractitionerFollowUps } from "@/lib/hooks";
 import { updateFollowUpDate } from "@/lib/queries";
+import { 
+  Calendar, 
+  Clock, 
+  User, 
+  CheckCircle2, 
+  AlertCircle,
+  FileText, 
+  CalendarPlus, 
+  ChevronRight,
+  Stethoscope,
+  X,
+  Search
+} from "lucide-react";
 
 type Filter = "today" | "week" | "overdue" | "completed";
 
-const FILTER_LABELS: Record<Filter, string> = {
-  today: "Due Today",
-  week: "This Week",
-  overdue: "Overdue",
-  completed: "Completed",
+// Strictly matching the requested Medical Palette
+// Primary: #2563EB
+// Background: #F8FAFC
+// Cards: #FFFFFF
+// Border: #E5E7EB
+// Primary Text: #111827
+// Secondary Text: #6B7280
+// Success: #16A34A
+// Warning: #F59E0B
+// Danger: #DC2626
+
+const FILTER_CONFIG: Record<Filter, { label: string; icon: React.ElementType; color: string; bg: string; badge: string; text: string; subtext: string }> = {
+  today: { label: "Today", icon: Clock, color: "text-[#16A34A]", bg: "bg-[#16A34A]/10", badge: "bg-[#16A34A]/10 text-[#16A34A]", text: "Today's Follow-ups", subtext: "Due for check-in today" },
+  week: { label: "Upcoming", icon: Calendar, color: "text-[#2563EB]", bg: "bg-[#2563EB]/10", badge: "bg-[#2563EB]/10 text-[#2563EB]", text: "Upcoming", subtext: "Scheduled this week" },
+  overdue: { label: "Overdue", icon: AlertCircle, color: "text-[#DC2626]", bg: "bg-[#DC2626]/10", badge: "bg-[#DC2626]/10 text-[#DC2626]", text: "Overdue", subtext: "Requires immediate attention" },
+  completed: { label: "Completed", icon: CheckCircle2, color: "text-[#6B7280]", bg: "bg-[#F3F4F6]", badge: "bg-[#F3F4F6] text-[#6B7280]", text: "Completed", subtext: "Successfully reviewed" },
 };
 
-const STATUS_STYLES: Record<Filter, string> = {
-  today: "bg-herb-green/10 text-herb-green border-herb-green/20",
-  week: "bg-blue-50 text-blue-700 border-blue-100",
-  overdue: "bg-red-50 text-red-600 border-red-100",
-  completed: "bg-muted text-muted-foreground border-border",
-};
-
-export default function FollowUpsPage() {
+export default function FollowUpsDashboard() {
   const { user } = useAuth();
   const { data: followUps = [], loading, refetch } = usePractitionerFollowUps(user?.id);
 
@@ -52,24 +69,27 @@ export default function FollowUpsPage() {
   const formattedFollowUps = (followUps || []).map((fu) => {
     const filter = getFollowUpFilter(fu.recommendedDate, fu.isBooked);
     const dateLabel = fu.isBooked
-      ? "Completed"
+      ? `Booked (${fu.recommendedDate ? new Date(fu.recommendedDate).toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" }) : ""})`
       : filter === "today"
       ? "Today"
       : filter === "overdue"
-      ? `Overdue (${fu.recommendedDate ? new Date(fu.recommendedDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : ""})`
-      : fu.recommendedDate ? new Date(fu.recommendedDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+      ? `Overdue (${fu.recommendedDate ? new Date(fu.recommendedDate).toLocaleDateString("en-US", { day: "2-digit", month: "short" }) : ""})`
+      : fu.recommendedDate ? new Date(fu.recommendedDate).toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
     return {
       id: fu.id,
-      patient: fu.patientName,
-      initials: fu.patientInitials,
-      age: fu.patientAge,
+      patient: fu.patientName || "Unknown Patient",
+      initials: fu.patientInitials || "?",
+      age: fu.patientAge || "--",
+      gender: "Not specified", // Placeholder as it's requested but not in standard payload yet
+      patientId: fu.patientId || "ID-UNKNOWN",
       lastVisit: "Recent Consult",
       dueDate: dateLabel,
       dueDateRaw: fu.recommendedDate,
-      reason: fu.isBooked ? "Scheduled consultation complete." : "Routine follow-up check-in.",
+      reason: fu.isBooked ? "Upcoming session booked." : "Routine follow-up review.",
       filter,
       mode: "video" as const,
+      assignedDoctor: "Primary Physician",
     };
   });
 
@@ -96,167 +116,235 @@ export default function FollowUpsPage() {
   }
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-7xl mx-auto">
-      <div className="mb-6">
-        <h1 className="font-display text-xl font-semibold text-foreground">Follow-ups</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Track pending follow-ups and schedule sessions</p>
-      </div>
-
-      {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <div className="w-8 h-8 rounded-full border-2 border-herb-green border-t-transparent animate-spin" />
+    <div className="bg-[#F8FAFC] min-h-screen pb-16">
+      <div className="max-w-[1200px] mx-auto px-6 pt-10">
+        
+        {/* Page Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+          <div>
+            <h1 className="text-[32px] font-bold text-[#111827] leading-tight">
+              Follow-up Dashboard
+            </h1>
+            <p className="text-[15px] text-[#6B7280] mt-1.5 max-w-2xl">
+              Manage scheduled patient follow-ups, upcoming reviews, overdue appointments, and completed check-ins.
+            </p>
+          </div>
+          <div>
+            <button className="flex items-center gap-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white px-5 py-2.5 rounded-[12px] font-medium text-[15px] transition-colors shadow-sm">
+              <CalendarPlus className="w-5 h-5" />
+              Schedule Follow-up
+            </button>
+          </div>
         </div>
-      ) : (
-        <>
-          {/* Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-            {(["today", "overdue", "week", "completed"] as Filter[]).map((f) => (
-              <button
-                key={f}
-                onClick={() => setActiveFilter(f)}
-                className={cn(
-                  "bg-white rounded-xl border p-4 text-center transition-all",
-                  activeFilter === f ? "border-herb-green/40 shadow-sm" : "border-border hover:border-herb-green/20"
-                )}
-              >
-                <p
-                  className={cn(
-                    "font-display text-2xl font-bold",
-                    f === "overdue" ? "text-red-500" :
-                    f === "today" ? "text-herb-green" :
-                    f === "week" ? "text-blue-600" : "text-muted-foreground"
-                  )}
-                >
-                  {counts[f]}
-                </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{FILTER_LABELS[f]}</p>
-              </button>
-            ))}
-          </div>
 
-          {/* Filter tabs */}
-          <div className="flex gap-1 bg-muted rounded-xl p-1 mb-5 w-fit">
-            {(["today", "week", "overdue", "completed"] as Filter[]).map((f) => (
-              <button
-                key={f}
-                onClick={() => setActiveFilter(f)}
-                className={cn(
-                  "px-4 py-2 text-xs font-medium rounded-lg transition-all",
-                  activeFilter === f ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {FILTER_LABELS[f]}
-              </button>
-            ))}
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="w-8 h-8 rounded-full border-4 border-[#E5E7EB] border-t-[#2563EB] animate-spin" />
           </div>
+        ) : (
+          <>
+            {/* Statistics Cards (KPIs) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+              {(Object.keys(FILTER_CONFIG) as Filter[]).map((f) => {
+                const conf = FILTER_CONFIG[f];
+                const Icon = conf.icon;
+                return (
+                  <div
+                    key={f}
+                    className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[16px] p-5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:-translate-y-0.5 transition-transform duration-200"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", conf.bg)}>
+                        <Icon className={cn("w-5 h-5", conf.color)} />
+                      </div>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[32px] font-bold text-[#111827] leading-none mb-1">{counts[f]}</span>
+                      <span className="text-[15px] font-semibold text-[#111827]">{conf.text}</span>
+                      <span className="text-[13px] text-[#6B7280] mt-0.5">{conf.subtext}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
 
-          <div className="space-y-3">
-            {filtered.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-border p-12 text-center">
-                <span className="text-4xl">✓</span>
-                <p className="font-semibold text-foreground mt-3">All clear</p>
-                <p className="text-xs text-muted-foreground mt-1">No follow-ups in this category</p>
-              </div>
-            ) : (
-              filtered.map((fu) => (
-                <div
-                  key={fu.id}
-                  className={cn(
-                    "bg-white rounded-2xl border overflow-hidden transition-all",
-                    fu.filter === "overdue" ? "border-red-200" :
-                    fu.filter === "today" ? "border-herb-green/30" : "border-border",
-                    fu.filter === "completed" && "opacity-60"
-                  )}
-                >
-                  <div className="p-5">
-                    <div className="flex items-start justify-between gap-3 flex-wrap">
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-sage/20 flex items-center justify-center flex-shrink-0">
-                          <span className="font-bold text-sage">{fu.initials}</span>
+            {/* Filter Tabs (Segmented Control) */}
+            <div className="flex items-center bg-[#F3F4F6] p-1 rounded-[12px] w-fit mb-8 shadow-inner border border-[#E5E7EB]/50">
+              {(Object.keys(FILTER_CONFIG) as Filter[]).map((f) => {
+                const isActive = activeFilter === f;
+                return (
+                  <button
+                    key={f}
+                    onClick={() => setActiveFilter(f)}
+                    className={cn(
+                      "px-5 py-2 text-[14px] font-medium rounded-[10px] transition-all duration-200",
+                      isActive 
+                        ? "bg-[#FFFFFF] text-[#2563EB] shadow-[0_1px_3px_rgba(0,0,0,0.1)]" 
+                        : "text-[#6B7280] hover:text-[#111827] hover:bg-[#E5E7EB]/50"
+                    )}
+                  >
+                    {FILTER_CONFIG[f].label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Follow-up List */}
+            <div className="space-y-4">
+              {filtered.length === 0 ? (
+                /* Empty State */
+                <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[16px] p-16 flex flex-col items-center justify-center text-center shadow-sm">
+                  <div className="w-16 h-16 bg-[#F3F4F6] rounded-full flex items-center justify-center mb-5">
+                    <Search className="w-8 h-8 text-[#6B7280]" />
+                  </div>
+                  <h3 className="text-[22px] font-bold text-[#111827] mb-2">No follow-ups scheduled</h3>
+                  <p className="text-[15px] text-[#6B7280] mb-6 max-w-sm">
+                    Newly scheduled follow-ups will appear here based on your selected filters.
+                  </p>
+                  <button className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white px-5 py-2 rounded-[12px] font-medium text-[14px] transition-colors">
+                    Schedule Follow-up
+                  </button>
+                </div>
+              ) : (
+                filtered.map((fu) => (
+                  <div
+                    key={fu.id}
+                    className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-md hover:-translate-y-[1px] transition-all duration-200"
+                  >
+                    <div className="p-6 flex flex-col lg:flex-row gap-6 lg:items-center">
+                      
+                      {/* Left Section: Patient Info */}
+                      <div className="flex items-center gap-4 lg:w-[30%]">
+                        <div className="w-[48px] h-[48px] rounded-full bg-[#F3F4F6] border border-[#E5E7EB] flex items-center justify-center flex-shrink-0">
+                          <span className="font-semibold text-[#111827] text-[16px]">{fu.initials}</span>
                         </div>
-                        <div>
-                          <p className="text-sm font-semibold text-foreground">{fu.patient}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {fu.age}y · {fu.lastVisit}
-                          </p>
+                        <div className="flex flex-col">
+                          <h4 className="text-[16px] font-semibold text-[#111827]">{fu.patient}</h4>
+                          <div className="flex items-center text-[13px] text-[#6B7280] mt-0.5 gap-2">
+                            <span>{fu.age} yrs</span>
+                            <span>•</span>
+                            <span>{fu.gender}</span>
+                            <span>•</span>
+                            <span className="font-mono text-[11px] bg-[#F8FAFC] px-1.5 py-0.5 rounded border border-[#E5E7EB]">{fu.patientId.slice(0, 8)}</span>
+                          </div>
                         </div>
                       </div>
-                      <span className={cn("text-[10px] font-semibold px-2.5 py-1 rounded-full border", STATUS_STYLES[fu.filter])}>
-                        {fu.dueDate}
-                      </span>
+
+                      {/* Divider (Desktop) */}
+                      <div className="hidden lg:block w-px h-12 bg-[#E5E7EB]" />
+
+                      {/* Middle Section: Details */}
+                      <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-8">
+                        <div>
+                          <div className="flex items-center gap-1.5 text-[13px] text-[#6B7280] mb-1">
+                            <Calendar className="w-3.5 h-3.5" /> Date & Type
+                          </div>
+                          <div className="text-[15px] font-medium text-[#111827]">
+                            {fu.dueDateRaw ? new Date(fu.dueDateRaw).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" }) : "Unscheduled"}
+                            <span className="text-[#6B7280] font-normal ml-2">({fu.mode})</span>
+                          </div>
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5 text-[13px] text-[#6B7280] mb-1">
+                            <FileText className="w-3.5 h-3.5" /> Reason
+                          </div>
+                          <div className="text-[15px] font-medium text-[#111827] truncate">
+                            {fu.reason}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Divider (Desktop) */}
+                      <div className="hidden lg:block w-px h-12 bg-[#E5E7EB]" />
+
+                      {/* Right Section: Status & Actions */}
+                      <div className="flex flex-row lg:flex-col items-center lg:items-end justify-between gap-4 lg:w-[20%]">
+                        <div className={cn("px-3 py-1 rounded-full text-[13px] font-medium", FILTER_CONFIG[fu.filter].badge)}>
+                          {FILTER_CONFIG[fu.filter].label}
+                        </div>
+                        
+                        {fu.filter !== "completed" ? (
+                          <div className="flex items-center gap-2">
+                            <Link href={`/pro/patient/${fu.patientId}`}>
+                              <button className="text-[14px] font-medium text-[#6B7280] hover:text-[#111827] px-3 py-1.5 transition-colors">
+                                View Details
+                              </button>
+                            </Link>
+                            <button
+                              onClick={() => setSchedulingId(schedulingId === fu.id ? null : fu.id)}
+                              className="text-[14px] font-medium bg-[#F3F4F6] hover:bg-[#E5E7EB] text-[#111827] px-4 py-1.5 rounded-[8px] transition-colors"
+                            >
+                              Reschedule
+                            </button>
+                          </div>
+                        ) : (
+                          <Link href={`/pro/patient/${fu.patientId}`}>
+                            <button className="text-[14px] font-medium text-[#2563EB] hover:text-[#1D4ED8] px-3 py-1.5 transition-colors">
+                              View Details
+                            </button>
+                          </Link>
+                        )}
+                      </div>
                     </div>
 
-                    <p className="text-xs text-muted-foreground mt-3 leading-relaxed">{fu.reason}</p>
-                    <p className="text-[10px] text-muted-foreground mt-1">
-                      {fu.mode === "video" ? "📹 Video Consultation" : "🏥 In-Clinic"}
-                    </p>
-
-                    {fu.filter !== "completed" && (
-                      <div className="flex gap-2 mt-4">
-                        <button
-                          onClick={() => setSchedulingId(schedulingId === fu.id ? null : fu.id)}
-                          className="flex-1 py-2 bg-herb-green text-white text-xs font-semibold rounded-xl hover:bg-herb-green/90 transition-all"
-                        >
-                          Change Follow-up Date
-                        </button>
+                    {/* Inline Reschedule Form */}
+                    {schedulingId === fu.id && (
+                      <div className="border-t border-[#E5E7EB] bg-[#F8FAFC] p-6 animate-in slide-in-from-top-2 fade-in duration-200">
+                        <div className="flex flex-col md:flex-row gap-4">
+                          <div className="flex-[1]">
+                            <label className="text-[14px] font-medium text-[#111827] block mb-1.5">
+                              New Date
+                            </label>
+                            <input
+                              type="date"
+                              value={followUpDate}
+                              onChange={(e) => setFollowUpDate(e.target.value)}
+                              min={new Date().toISOString().split("T")[0]}
+                              className="w-full text-[15px] border border-[#E5E7EB] rounded-[10px] px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] bg-[#FFFFFF] transition-all"
+                            />
+                          </div>
+                          <div className="flex-[2]">
+                            <label className="text-[14px] font-medium text-[#111827] block mb-1.5">
+                              Follow-up Note <span className="text-[#6B7280] font-normal">(Optional)</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={followUpNote}
+                              onChange={(e) => setFollowUpNote(e.target.value)}
+                              placeholder="e.g. Needs updated vitals"
+                              className="w-full text-[15px] border border-[#E5E7EB] rounded-[10px] px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] bg-[#FFFFFF] transition-all"
+                            />
+                          </div>
+                          <div className="flex items-end gap-2 mt-2 md:mt-0">
+                            <button
+                              onClick={() => setSchedulingId(null)}
+                              className="px-4 py-2 text-[14px] font-medium text-[#6B7280] hover:text-[#111827] hover:bg-[#E5E7EB]/50 rounded-[10px] transition-colors"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => handleSchedule(fu.id)}
+                              disabled={!followUpDate}
+                              className={cn(
+                                "px-5 py-2 text-[14px] font-medium rounded-[10px] transition-colors",
+                                followUpDate 
+                                  ? "bg-[#2563EB] hover:bg-[#1D4ED8] text-white" 
+                                  : "bg-[#E5E7EB] text-[#6B7280] cursor-not-allowed"
+                              )}
+                            >
+                              Confirm
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
-
-                  {/* Inline scheduler */}
-                  {schedulingId === fu.id && (
-                    <div className="border-t border-border bg-muted/30 p-5 space-y-3">
-                      <p className="text-xs font-semibold text-foreground">Reschedule Follow-up — {fu.patient}</p>
-                      <div>
-                        <label className="text-[10px] font-medium text-muted-foreground block mb-1.5">
-                          New Recommended Date
-                        </label>
-                        <input
-                          type="date"
-                          value={followUpDate}
-                          onChange={(e) => setFollowUpDate(e.target.value)}
-                          min={new Date().toISOString().split("T")[0]}
-                          className="w-full text-sm border border-border rounded-xl px-3 py-2.5 focus:outline-none focus:border-herb-green/50 bg-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-medium text-muted-foreground block mb-1.5">
-                          Follow-up Note (optional)
-                        </label>
-                        <textarea
-                          rows={2}
-                          value={followUpNote}
-                          onChange={(e) => setFollowUpNote(e.target.value)}
-                          placeholder="Reason for changing follow-up date…"
-                          className="w-full text-sm border border-border rounded-xl px-3 py-2.5 resize-none focus:outline-none focus:border-herb-green/50 bg-white"
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleSchedule(fu.id)}
-                          disabled={!followUpDate}
-                          className={cn(
-                            "flex-1 py-2.5 text-xs font-semibold rounded-xl transition-all",
-                            followUpDate ? "bg-herb-green text-white hover:bg-herb-green/90" : "bg-muted text-muted-foreground cursor-not-allowed"
-                          )}
-                        >
-                          Confirm Date Update
-                        </button>
-                        <button
-                          onClick={() => setSchedulingId(null)}
-                          className="px-4 py-2.5 border border-border rounded-xl text-xs font-medium text-muted-foreground hover:bg-muted"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        </>
-      )}
+                ))
+              )}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

@@ -50,7 +50,7 @@ export default function PrescriptionPage() {
         initials: rx.doctorInitials,
         specialty: rx.specialty,
         lastVisit: rx.date,
-        nextFollowUp: rx.followUpDate ? new Date(rx.followUpDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—",
+        nextFollowUp: (rx as any).upcomingCallDate ? `${(rx as any).upcomingCallDate} at ${(rx as any).upcomingCallTime}` : (rx.followUpDate ? new Date(rx.followUpDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"),
         totalRx: 1,
       };
       prescriptionsGrouped[docId] = [];
@@ -266,6 +266,7 @@ export default function PrescriptionPage() {
                                       <p className="text-sm font-semibold text-foreground">{f.name}</p>
                                       <div className="flex flex-wrap gap-2 mt-1 text-xs text-muted-foreground">
                                         {f.dose && <span>💊 {f.dose}</span>}
+                                        {f.timeOfDay && <span>☀️ {f.timeOfDay}</span>}
                                         {f.frequency && <span>⏰ {f.frequency}</span>}
                                         {f.anupana && <span>🫖 {f.anupana}</span>}
                                         {f.durationDays > 0 && <span>📅 {f.durationDays} days</span>}

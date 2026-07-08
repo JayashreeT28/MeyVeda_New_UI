@@ -5,7 +5,8 @@ import Link from "next/link";
 import { Progress } from "@/components/ui/progress";
 import { ABHABadge } from "@/components/Badges";
 import { PractitionerCard } from "@/components/PractitionerCard";
-import { usePractitioners, useDinacharyaTasks, useAppointments, usePatientProfile } from "@/lib/hooks";
+import { usePractitioners, useDinacharyaTasks, useAppointments, usePatientProfile, usePatientPrescriptions } from "@/lib/hooks";
+import { Calendar, X } from "lucide-react";
 import { toggleDinacharyaTask } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
@@ -20,8 +21,37 @@ export default function HomePage() {
   const { data: dbTasks } = useDinacharyaTasks(user?.id);
   const { data: appointments } = useAppointments(user?.id);
   const { data: profile } = usePatientProfile(user?.id);
+  const { data: prescriptions } = usePatientPrescriptions(user?.id);
 
   const [tasks, setTasks] = useState<DinacharTask[]>([]);
+  const [upcomingCallAlert, setUpcomingCallAlert] = useState<{ doctorName: string, date: string, time: string } | null>(null);
+
+  useEffect(() => {
+    if (prescriptions && prescriptions.length > 0) {
+      let nearest: any = null;
+      let minDiff = Infinity;
+      const today = new Date();
+      today.setHours(0,0,0,0);
+
+      prescriptions.forEach(rx => {
+        if ((rx as any).upcomingCallDate && (rx as any).upcomingCallTime) {
+          const callDate = new Date((rx as any).upcomingCallDate);
+          callDate.setHours(0,0,0,0);
+          const diffDays = Math.ceil((callDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          
+          if (diffDays >= 0 && diffDays <= 3 && diffDays < minDiff) {
+            minDiff = diffDays;
+            nearest = {
+              doctorName: rx.doctorName,
+              date: (rx as any).upcomingCallDate,
+              time: (rx as any).upcomingCallTime
+            };
+          }
+        }
+      });
+      setUpcomingCallAlert(nearest);
+    }
+  }, [prescriptions]);
 
   useEffect(() => {
     if (dbTasks && dbTasks.length > 0) setTasks(dbTasks);
@@ -120,6 +150,22 @@ export default function HomePage() {
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-8 max-w-7xl mx-auto">
+      {upcomingCallAlert && (
+        <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between shadow-sm animate-in slide-in-from-top-2 fade-in duration-300">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 flex-shrink-0">
+              <Calendar className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-emerald-900">Upcoming Appointment Alert</p>
+              <p className="text-xs font-medium text-emerald-700 mt-0.5">Your upcoming appointment is with Dr. {upcomingCallAlert.doctorName} on {upcomingCallAlert.date} at {upcomingCallAlert.time}</p>
+            </div>
+          </div>
+          <button onClick={() => setUpcomingCallAlert(null)} className="text-emerald-500 hover:text-emerald-700 transition-colors p-2">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
       {/* Welcome Header */}
       <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/60 pb-6">
         <div>

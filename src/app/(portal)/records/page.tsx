@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useHealthRecords, usePatientProfile } from "@/lib/hooks";
-import { getDetailedConsultations } from "@/lib/queries";
+import { getDetailedConsultations, formatTime } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import type { HealthRecord } from "@/lib/types";
@@ -105,6 +105,8 @@ export default function RecordsPage() {
         medicines: meds,
         prescriptionNotes: pres?.dietary_advice,
         followUpInstructions: pres?.lifestyle_advice || emr?.plan,
+        upcomingCallDate: rawAssessment?.upcomingCallDate,
+        upcomingCallTime: rawAssessment?.upcomingCallTime ? formatTime(rawAssessment.upcomingCallTime) : null,
         attachments: emr?.emr_attachments || [],
         practitioner: r.practitioners,
       }
@@ -675,15 +677,17 @@ export default function RecordsPage() {
                       {activeRecord._raw?.followUpInstructions || "No specific follow-up instructions provided."}
                     </p>
                   </div>
-                </div>
-
-                {/* Upcoming Calls Button */}
-                <div className="mt-4 flex justify-start">
-                  <Link href={`/doctor/${activeRecord._raw?.practitioner?.id || ''}`}>
-                    <button className="flex items-center justify-center h-10 px-4 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-medium text-sm rounded-lg shadow-sm hover:shadow-md transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-indigo-500/50">
-                      Upcoming Calls
-                    </button>
-                  </Link>
+                  {activeRecord._raw?.upcomingCallDate && activeRecord._raw?.upcomingCallTime && (
+                    <div className="mt-4 p-5 bg-emerald-50/50 border border-emerald-100 rounded-xl flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-1">Upcoming Session Booked</p>
+                        <p className="text-sm font-semibold text-emerald-900">{activeRecord._raw.upcomingCallDate} at {activeRecord._raw.upcomingCallTime}</p>
+                      </div>
+                      <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+                        <Clock className="w-5 h-5" />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
